@@ -98,6 +98,7 @@ void SerialManager::send_frame() {
       // Serial.println(sizeof(int) * 2 + );
 
       sendPacket(&packetHeader, buf + offset);
+      // vTaskDelay(1); 
     }
   }
   
@@ -163,14 +164,14 @@ void SerialManager::send_frame() {
     buf = NULL;
   }
 
-  vTaskDelay(pdMS_TO_TICKS(1000/60));
+  vTaskDelay(pdMS_TO_TICKS(1000/90));
 
   free(buf);
 
   long request_end = millis();
   long latency = request_end - last_request_time;
   last_request_time = request_end;
-  log_d("Size: %uKB, Time: %ums (%ifps)\n", len / 1024, latency,
+  Serial.printf("Size: %uKB, Time: %ums (%ifps)\n", len / 1024, latency,
         1000 / latency);
 }
 #endif
@@ -203,9 +204,6 @@ void SerialManager::init() {
   
       Serial.println("Setting hostname to 'Balls_sender'...");
       WiFi.setHostname("Balls_sender");
-  
-      Serial.println("Delaying for 2000ms...");
-      vTaskDelay(pdMS_TO_TICKS(2000));
   
       Serial.println("Initializing UDP on port " + String(udpPort) + "...");
       if (udp.begin(udpPort)) {
