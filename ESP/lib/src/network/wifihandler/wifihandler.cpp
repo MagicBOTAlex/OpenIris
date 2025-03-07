@@ -20,7 +20,7 @@ WiFiHandler::~WiFiHandler() {}
 void WiFiHandler::begin() {
 
   // just to be sure, we reeset everything before we do anything, some boards were having problems otherwise
-  WiFi.disconnect();
+  // WiFi.disconnect();
   // we purposefully set the lowest min required security level, some boards have problems connecting otherwise
   // https://github.com/espressif/arduino-esp32/issues/8770
   WiFi.setMinSecurity(WIFI_AUTH_WEP);

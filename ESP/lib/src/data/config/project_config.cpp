@@ -161,7 +161,7 @@ void ProjectConfig::load() {
 
   /* Wifi TX Power Config */
   // 11dBm is the default value
-  this->config.txpower.power = getUInt("txpower", 52);
+  this->config.txpower.power = getUInt("txpower", 78);
 
   /* WiFi Config */
   int networkCount = getInt("networkCount", 0);
@@ -203,7 +203,7 @@ void ProjectConfig::load() {
   this->config.camera.href = getInt("href", 0);
   this->config.camera.framesize = getInt("framesize", (uint8_t)CAM_RESOLUTION);
   this->config.camera.quality = getInt("quality", 7);
-  this->config.camera.brightness = getInt("brightness", 2);
+  this->config.camera.brightness = getInt("brightness", 10);
 
   this->_already_loaded = true;
   this->notifyAll(ConfigState_e::configLoaded);
@@ -283,7 +283,7 @@ void ProjectConfig::setWifiConfig(const std::string& networkName,
 
       if (shouldNotify) {
         wifiStateManager.setState(WiFiState_e::WiFiState_Disconnected);
-        // WiFi.disconnect();
+        // // WiFi.disconnect();
         this->wifiConfigSave();
         this->notifyAll(ConfigState_e::networksConfigUpdated);
       }
@@ -312,7 +312,7 @@ void ProjectConfig::setWifiConfig(const std::string& networkName,
 
   if (shouldNotify) {
     wifiStateManager.setState(WiFiState_e::WiFiState_None);
-    // WiFi.disconnect();
+    // // WiFi.disconnect();
     this->wifiConfigSave();
     this->notifyAll(ConfigState_e::networksConfigUpdated);
   }
@@ -364,7 +364,7 @@ void ProjectConfig::setAPWifiConfig(const std::string& ssid,
 
   if (shouldNotify) {
     wifiStateManager.setState(WiFiState_e::WiFiState_None);
-    WiFi.disconnect();
+    // WiFi.disconnect();
     this->wifiConfigSave();
     this->notifyAll(ConfigState_e::networksConfigUpdated);
   }
