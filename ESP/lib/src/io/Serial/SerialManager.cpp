@@ -11,16 +11,20 @@ const int udpPort = 3333;
 WiFiUDP udp;
 
 // Image is quite large, so many frags
-#define UDP_FRAG_NUM 8
+#define UDP_FRAG_NUM 12
+#define UDP_RETRY 5
+#define UDP_PACKET_SIZE (size_t)1024
 
 // UDP has max packet size
 struct PacketHeader {
   int frameNum;
   int id;
   int size;
+  int totalPackets;
 } __attribute__((packed));
 
 int currentFrameNum = 0;
+bool confirmed[UDP_FRAG_NUM];
 
 void createByteArray(uint8_t** arr, size_t* len) {
   *len = 255; // 0x01 to 0xFF (255 values)
@@ -75,61 +79,79 @@ void SerialManager::send_frame() {
   udp.flush();
   currentFrameNum++;
 
-  const size_t bytesPerPacket = len / UDP_FRAG_NUM;
-
-  bool confirmed[UDP_FRAG_NUM];
   memset(confirmed, false, sizeof(confirmed)); // Clear confirmed
   PacketHeader packetHeader;
-  for (size_t i = 0; i < UDP_FRAG_NUM; i++)
+  for (size_t sendInteration = 0; sendInteration < 1 ; sendInteration++)
   {
-    packetHeader.frameNum = currentFrameNum;
-    packetHeader.id = i;
+    for (size_t i = 0; i < UDP_FRAG_NUM; i++)
+    {
+      if (sendInteration > 0 && i == 0) continue; // Skip first packet if resending the rest
 
-    size_t offset = min(i * bytesPerPacket, len);
-    packetHeader.size = min(bytesPerPacket, len - offset);
+      packetHeader.frameNum = currentFrameNum;
+      packetHeader.id = i;
+      packetHeader.totalPackets = ceil(len / UDP_PACKET_SIZE ) +1;
 
-    // Serial.print("Sending size of: ");
-    // Serial.println(sizeof(int) * 2 + );
+      size_t offset = min(i * UDP_PACKET_SIZE, len);
+      packetHeader.size = min(UDP_PACKET_SIZE, len - offset);
 
-    sendPacket(&packetHeader, buf + offset);
+      // Serial.print("Sending size of: ");
+      // Serial.println(sizeof(int) * 2 + );
+
+      sendPacket(&packetHeader, buf + offset);
+    }
   }
-
-  vTaskDelay(pdMS_TO_TICKS(50));
   
-  while (udp.available()) {
-    String response = udp.readString();
-    if (response == "ERR") {
-      vTaskDelay(pdMS_TO_TICKS(100));
-      return; // Restart from back
-    }
-    int colonIndex = response.indexOf(':');
-    int colonIndex2 = response.indexOf(':', colonIndex);
-    if (colonIndex != -1) {
-      int packetId = response.substring(0, colonIndex).toInt();
-      int packetFrameNum = response.substring(colonIndex, colonIndex2).toInt();
-      if (packetFrameNum == currentFrameNum){
-        confirmed[packetId] = true;
 
-      }
-    }
-  }
-
-  // Retry send
-  for (size_t i = 0; i < UDP_FRAG_NUM; i++)
-  {
-    if (confirmed[i]) continue;
+  // bool confirmedMissing = true; // Assume missing
+  // for (size_t i = 0; i < UDP_RETRY; i++)
+  // {
+  //   // Check if all ACK
+  //   for (size_t p = 0; p < UDP_FRAG_NUM; p++)
+  //   {
+  //     confirmedMissing &= confirmed[p];
+  //   }
+  //   if (!confirmedMissing) break;
     
-    // Serial.print("Packet ");
-    // Serial.print(i);
-    // Serial.println(" dropped. Retrying");
-    packetHeader.frameNum = currentFrameNum;
-    packetHeader.id = i;
 
-    size_t offset = min(i * bytesPerPacket, len);
-    packetHeader.size = min(bytesPerPacket, len - offset);
+  //   vTaskDelay(pdMS_TO_TICKS(50));
+    
+  //   while (udp.available()) {
+  //     String response = udp.readString();
+  //     if (response == "ERR") {
+  //       vTaskDelay(pdMS_TO_TICKS(100));
+  //       return; // Restart from back
+  //     }
+  //     int colonIndex = response.indexOf(':');
+  //     int colonIndex2 = response.indexOf(':', colonIndex);
+  //     if (colonIndex != -1) {
+  //       int packetId = response.substring(0, colonIndex).toInt();
+  //       int packetFrameNum = response.substring(colonIndex, colonIndex2).toInt();
+  //       if (packetFrameNum == currentFrameNum){
+  //         confirmed[packetId] = true;
 
-    sendPacket(&packetHeader, buf + offset);
-  }
+  //       }
+  //     }
+  //   }
+
+  //   // Retry send
+  //   for (size_t i = 0; i < UDP_FRAG_NUM; i++)
+  //   {
+  //     if (confirmed[i]) continue;
+      
+  //     // Serial.print("Packet ");
+  //     // Serial.print(i);
+  //     // Serial.println(" dropped. Retrying");
+  //     packetHeader.frameNum = currentFrameNum;
+  //     packetHeader.id = i;
+  //     packetHeader.totalPackets = ceil(len / UDP_PACKET_SIZE) + 1;
+
+  //     size_t offset = min(i * UDP_PACKET_SIZE, len);
+  //     packetHeader.size = min(UDP_PACKET_SIZE, len - offset);
+
+  //     sendPacket(&packetHeader, buf + offset);
+  //   }
+  // }
+  
   
 
   if (fb) {
@@ -140,6 +162,8 @@ void SerialManager::send_frame() {
     free(buf);
     buf = NULL;
   }
+
+  vTaskDelay(pdMS_TO_TICKS(1000/60));
 
   free(buf);
 
@@ -158,9 +182,6 @@ void SerialManager::init() {
       if (SERIAL_FLUSH_ENABLED) {
           Serial.flush();
       }
-  
-      Serial.println("Delaying for 2000ms...");
-      vTaskDelay(pdMS_TO_TICKS(2000));
   
       Serial.println("Starting WiFi connection...");
       WiFi.begin(ssid, pwd);
