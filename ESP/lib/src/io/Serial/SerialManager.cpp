@@ -11,7 +11,7 @@ const int udpPort = 3333;
 WiFiUDP udp;
 
 // Image is quite large, so many frags
-#define UDP_FRAG_NUM 48
+#define UDP_FRAG_NUM 8
 
 // UDP has max packet size
 struct PacketHeader {
@@ -93,13 +93,24 @@ void SerialManager::send_frame() {
 
     sendPacket(&packetHeader, buf + offset);
   }
+
+  vTaskDelay(pdMS_TO_TICKS(50));
   
   while (udp.available()) {
     String response = udp.readString();
+    if (response == "ERR") {
+      vTaskDelay(pdMS_TO_TICKS(100));
+      return; // Restart from back
+    }
     int colonIndex = response.indexOf(':');
+    int colonIndex2 = response.indexOf(':', colonIndex);
     if (colonIndex != -1) {
-        int number = response.substring(0, colonIndex).toInt();
-        confirmed[number] = true;
+      int packetId = response.substring(0, colonIndex).toInt();
+      int packetFrameNum = response.substring(colonIndex, colonIndex2).toInt();
+      if (packetFrameNum == currentFrameNum){
+        confirmed[packetId] = true;
+
+      }
     }
   }
 
@@ -108,9 +119,9 @@ void SerialManager::send_frame() {
   {
     if (confirmed[i]) continue;
     
-    Serial.print("Packet ");
-    Serial.print(i);
-    Serial.println(" dropped. Retrying");
+    // Serial.print("Packet ");
+    // Serial.print(i);
+    // Serial.println(" dropped. Retrying");
     packetHeader.frameNum = currentFrameNum;
     packetHeader.id = i;
 
@@ -120,16 +131,6 @@ void SerialManager::send_frame() {
     sendPacket(&packetHeader, buf + offset);
   }
   
-
-  
-
-
-  // Serial.write(ETVR_HEADER, 2);
-  // Serial.write(ETVR_HEADER_FRAME, 2);
-  // len_bytes[0] = len & 0xFF;
-  // len_bytes[1] = (len >> CHAR_BIT) & 0xFF;
-  // Serial.write(len_bytes, 2);
-  // Serial.write((const char*)buf, len);
 
   if (fb) {
     esp_camera_fb_return(fb);
