@@ -69,7 +69,7 @@ void etvr_eye_tracker_web_init() {
       xTaskCreatePinnedToCore(
         [](void* param) {
           auto* engine = reinterpret_cast<HapticEngine*>(param);
-          engine->pingServerTask(param);
+          engine->runTask(param);
         },
         "PingTask",
         4096,        // stack size
