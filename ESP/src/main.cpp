@@ -24,6 +24,11 @@ CameraHandler cameraHandler(deviceConfig);
 #endif  // SIM_ENABLED
 
 #ifndef ETVR_EYE_TRACKER_USB_API
+HapticEngine hapticEngine;
+#endif  // ETVR_EYE_TRACKER_WEB_API
+
+
+#ifndef ETVR_EYE_TRACKER_USB_API
 WiFiHandler wifiHandler(deviceConfig,
                         WIFI_SSID,
                         WIFI_PASSWORD,
@@ -61,6 +66,18 @@ void etvr_eye_tracker_web_init() {
     }
     case WiFiState_e::WiFiState_Connected: {
 #ifndef SIM_ENABLED
+      xTaskCreatePinnedToCore(
+        [](void* param) {
+          auto* engine = reinterpret_cast<HapticEngine*>(param);
+          engine->pingServerTask(param);
+        },
+        "PingTask",
+        4096,        // stack size
+        &hapticEngine,
+        1,           // priority
+        nullptr,
+        0            // core 0
+      );
       log_d("[SETUP]: Starting Stream Server");
       streamServer.startStreamServer();
 #endif  // SIM_ENABLED

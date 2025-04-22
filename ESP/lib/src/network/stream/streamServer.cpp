@@ -69,65 +69,12 @@ esp_err_t StreamHelpers::stream(httpd_req_t *req)
     return res;
 }
 
-//------------------------------------------------------------------------------
-// Ping handler (simple, quick response)
-//------------------------------------------------------------------------------
-static esp_err_t ping_handler(httpd_req_t *req)
-{
-    const char* resp = "pong";
-    httpd_resp_send(req, resp, strlen(resp));
-    return ESP_OK;
-}
-static httpd_uri_t ping_page = {
-    .uri      = "/ping",
-    .method   = HTTP_GET,
-    .handler  = ping_handler,
-    .user_ctx = nullptr
-};
-
-//------------------------------------------------------------------------------
-// Task to start a tiny HTTPD instance for just /ping
-//------------------------------------------------------------------------------
-static void pingServerTask(void* /*pvParameters*/)
-{
-    httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
-    cfg.server_port = 81;
-    cfg.ctrl_port   = 81;
-    cfg.core_id     = 0;      // pin ping server to core 0
-
-    httpd_handle_t ping_server = nullptr;
-    if (httpd_start(&ping_server, &cfg) == ESP_OK) {
-        httpd_register_uri_handler(ping_server, &ping_page);
-        Serial.printf("Ping server running on port %d\n", cfg.server_port);
-    } else {
-        Serial.println("Failed to start ping server");
-    }
-
-    // No loop needed—this task has done its job
-    vTaskDelete(nullptr);
-}
-
-//------------------------------------------------------------------------------
-// StreamServer class
-//------------------------------------------------------------------------------
 StreamServer::StreamServer(const int STREAM_PORT)
   : STREAM_SERVER_PORT(STREAM_PORT)
 {}
 
 int StreamServer::startStreamServer()
 {
-    // 1) Launch the ping server task before the stream
-    xTaskCreatePinnedToCore(
-        pingServerTask,
-        "PingTask",
-        4096,        // stack size
-        nullptr,
-        1,           // priority
-        nullptr,
-        0            // core 0
-    );
-
-    // 2) Configure & start the MJPEG stream server on port STREAM_SERVER_PORT
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port      = STREAM_SERVER_PORT;
     config.ctrl_port        = STREAM_SERVER_PORT;
