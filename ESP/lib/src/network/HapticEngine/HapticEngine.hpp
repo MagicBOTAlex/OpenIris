@@ -24,6 +24,7 @@ private:
     esp_err_t doPing(httpd_req_t *req)
     {
         const char* resp = "pong";
+        setCorsHeaders(req);
         httpd_resp_send(req, resp, strlen(resp));
         return ESP_OK;
     }
@@ -39,6 +40,7 @@ private:
     esp_err_t doHapticEngineStatus(httpd_req_t *req)
     {
         const char* resp = "Haptic engine is running";
+        setCorsHeaders(req);
         httpd_resp_send(req, resp, strlen(resp));
         return ESP_OK;
     }
@@ -48,6 +50,7 @@ private:
     static esp_err_t handleHapticInstance(httpd_req_t *req) {
         // Recover the instance pointer we stored in user_ctx
         HapticInstance* inst = static_cast<HapticInstance*>(req->user_ctx);
+        setCorsHeaders(req);
 
         // Only allow POST
         if (req->method != HTTP_POST) {
@@ -80,12 +83,27 @@ private:
         // Update strength if present
         if (doc.containsKey("strength")) {
             inst->strength = doc["strength"].as<int>();
+            Serial.printf("[%s] Got strength: %d\n", inst->name, inst->strength);
             inst->updateInstance();
             return httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
         } else {
             httpd_resp_set_status(req, "400 Bad Request");
             return httpd_resp_send(req, "Missing 'strength'", HTTPD_RESP_USE_STRLEN);
         }
+    }
+
+    // Inject the CORS headers needed by browsers
+    static void setCorsHeaders(httpd_req_t* req) {
+        // allow your dev origin; or use "*" to allow any
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "http://localhost:1420");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type");
+    }
+
+    static esp_err_t cors_handler(httpd_req_t* req) {
+        setCorsHeaders(req);
+        // no body needed
+        return httpd_resp_send(req, nullptr, 0);
     }
 
     void setupHapticInstancesApi(std::vector<HapticInstance>& inst) {
@@ -125,8 +143,8 @@ public:
         // Just gonna hard code this for now
         instances.reserve(4);
 
-        instances.emplace_back(2, "LeftEar");
-        instances.emplace_back(3, "RightEar");
+        instances.emplace_back(2, "RightEar");
+        instances.emplace_back(3, "LeftEar");
         instances.emplace_back(4, "None1");
         instances.emplace_back(5, "None2");
 
@@ -151,6 +169,14 @@ public:
             .handler  = hapticEngineStatus_handler,
             .user_ctx = this
         };
+
+        httpd_uri_t cors_uri = {
+            .uri      = "/*",
+            .method   = HTTP_OPTIONS,
+            .handler  = cors_handler,
+            .user_ctx = this
+          };
+        httpd_register_uri_handler(server, &cors_uri);
 
         // Haptics pages is generated dynamically
         
